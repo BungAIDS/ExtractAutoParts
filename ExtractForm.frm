@@ -1,0 +1,236 @@
+VERSION 5.00
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ExtractForm
+   Caption         =   "Extract Auto Parts"
+   ClientHeight    =   3120
+   ClientLeft      =   120
+   ClientTop       =   465
+   ClientWidth     =   4710
+   StartUpPosition =   1  'CenterOwner
+End
+Attribute VB_Name = "ExtractForm"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Explicit
+
+' Dialog for ExtractAutoParts. Every control is created at run time in
+' UserForm_Initialize (which is why this .frm needs no .frx blob): one
+' checkbox per "AUTO *" folder that contains a zip, plus one checkbox
+' per zip inside AUTO MODELS. Checking the "daddy" model zip locks out
+' the other model zips - it already contains everything they do.
+'
+' The module reads Cancelled / JobNumber / JobFolder / SelectedUnits
+' after Show returns.
+
+Public Cancelled As Boolean
+Public JobNumber As String
+Public JobFolder As String
+Public SelectedUnits As Collection   ' of Array(srcSpec, srcIsZip, destName, renameDrawings)
+
+Private mChecks As Collection        ' every checkbox, index-aligned with mUnits
+Private mUnits As Collection
+Private mModelChecks As Collection   ' AUTO MODELS checkboxes other than daddy
+Private mTxtJob As MSForms.TextBox
+Private WithEvents mChkDaddy As MSForms.CheckBox
+Private WithEvents mBtnExtract As MSForms.CommandButton
+Private WithEvents mBtnCancel As MSForms.CommandButton
+
+Private Const INNER_WIDTH As Single = 312
+Private Const MARGIN As Single = 8
+Private Const ROW_HEIGHT As Single = 16
+
+Public Property Get UnitCount() As Long
+    UnitCount = mUnits.Count
+End Property
+
+Private Sub UserForm_Initialize()
+    Cancelled = True
+    Set mChecks = New Collection
+    Set mUnits = New Collection
+    Set mModelChecks = New Collection
+
+    Me.Caption = "Extract Auto Parts"
+
+    Dim y As Single: y = MARGIN
+
+    Dim lbl As MSForms.Label
+    Set lbl = Me.Controls.Add("Forms.Label.1", "lblJob")
+    lbl.Caption = "Job #:"
+    lbl.Left = MARGIN: lbl.Top = y + 3: lbl.Width = 38: lbl.Height = 12
+
+    Set mTxtJob = Me.Controls.Add("Forms.TextBox.1", "txtJob")
+    mTxtJob.Left = MARGIN + 40: mTxtJob.Top = y: mTxtJob.Width = 90: mTxtJob.Height = 18
+    y = y + 18 + MARGIN
+
+    y = BuildPartsFrame(y)
+    y = BuildModelsFrame(y)
+
+    Set mBtnExtract = Me.Controls.Add("Forms.CommandButton.1", "btnExtract")
+    mBtnExtract.Caption = "Extract"
+    mBtnExtract.Default = True
+    mBtnExtract.Width = 70: mBtnExtract.Height = 22
+    mBtnExtract.Left = INNER_WIDTH - MARGIN - 70 - 6 - 70
+    mBtnExtract.Top = y
+
+    Set mBtnCancel = Me.Controls.Add("Forms.CommandButton.1", "btnCancel")
+    mBtnCancel.Caption = "Cancel"
+    mBtnCancel.Cancel = True
+    mBtnCancel.Width = 70: mBtnCancel.Height = 22
+    mBtnCancel.Left = INNER_WIDTH - MARGIN - 70
+    mBtnCancel.Top = y
+    y = y + 22 + MARGIN
+
+    Me.Width = INNER_WIDTH + (Me.Width - Me.InsideWidth)
+    Me.Height = y + (Me.Height - Me.InsideHeight)
+End Sub
+
+' One checkbox per AUTO folder (except AUTO MODELS) that has a zip in it.
+Private Function BuildPartsFrame(ByVal startY As Single) As Single
+    Dim fra As MSForms.Frame
+    Set fra = Me.Controls.Add("Forms.Frame.1", "fraParts")
+    fra.Caption = "Parts"
+    fra.Left = MARGIN: fra.Top = startY: fra.Width = INNER_WIDTH - 2 * MARGIN
+
+    Dim y As Single: y = 10
+    Dim folderName As Variant
+    For Each folderName In ListAutoFolders()
+        If StrComp(CStr(folderName), MODELS_FOLDER, vbTextCompare) <> 0 Then
+            Dim folderPath As String: folderPath = DAG_ROOT & folderName & "\"
+            If ListZipsIn(folderPath).Count > 0 Then
+                Dim display As String: display = StripAutoPrefix(CStr(folderName))
+                AddUnitCheckBox fra, y, display, Array(folderPath, False, display, True)
+                y = y + ROW_HEIGHT
+            End If
+        End If
+    Next folderName
+
+    fra.Height = y + 14
+    BuildPartsFrame = startY + fra.Height + MARGIN
+End Function
+
+' One checkbox per zip inside AUTO MODELS; they all extract into MODELS_DEST.
+Private Function BuildModelsFrame(ByVal startY As Single) As Single
+    Dim modelsPath As String: modelsPath = DAG_ROOT & MODELS_FOLDER & "\"
+    Dim zips As Collection
+    Set zips = ListZipsIn(modelsPath)
+    If zips.Count = 0 Then
+        BuildModelsFrame = startY
+        Exit Function
+    End If
+
+    Dim fra As MSForms.Frame
+    Set fra = Me.Controls.Add("Forms.Frame.1", "fraModels")
+    fra.Caption = "Models (all extract into """ & MODELS_DEST & """)"
+    fra.Left = MARGIN: fra.Top = startY: fra.Width = INNER_WIDTH - 2 * MARGIN
+
+    Dim y As Single: y = 10
+    Dim zipName As Variant
+    For Each zipName In zips
+        Dim isDaddy As Boolean
+        isDaddy = (InStr(1, CStr(zipName), "daddy", vbTextCompare) > 0)
+        Dim chk As MSForms.CheckBox
+        Set chk = AddUnitCheckBox(fra, y, ZipLabel(CStr(zipName)), _
+                                  Array(modelsPath & zipName, True, MODELS_DEST, Not isDaddy))
+        If isDaddy Then
+            Set mChkDaddy = chk
+            chk.Font.Bold = True
+        Else
+            mModelChecks.Add chk
+        End If
+        y = y + ROW_HEIGHT
+    Next zipName
+
+    fra.Height = y + 14
+    BuildModelsFrame = startY + fra.Height + MARGIN
+End Function
+
+Private Function AddUnitCheckBox(fra As MSForms.Frame, ByVal y As Single, _
+                                 displayText As String, unit As Variant) As MSForms.CheckBox
+    Dim chk As MSForms.CheckBox
+    Set chk = fra.Controls.Add("Forms.CheckBox.1", "chkUnit" & (mChecks.Count + 1))
+    chk.Left = 8: chk.Top = y
+    chk.Width = fra.Width - 20: chk.Height = ROW_HEIGHT
+    chk.Caption = Replace(displayText, "&", "&&")   ' literal &, not an accelerator
+    mChecks.Add chk
+    mUnits.Add unit
+    Set AddUnitCheckBox = chk
+End Function
+
+' "AUTO INLET IVC LINKAGE" -> "INLET IVC LINKAGE"
+Private Function StripAutoPrefix(folderName As String) As String
+    If UCase$(folderName) Like "AUTO *" Then
+        StripAutoPrefix = Trim$(Mid$(folderName, 6))
+    Else
+        StripAutoPrefix = folderName
+    End If
+End Function
+
+' "EXTRACT ME!! (A8 ANGLE BASE ONLY).zip" -> "A8 ANGLE BASE ONLY"
+Private Function ZipLabel(zipName As String) As String
+    Dim base As String: base = zipName
+    If InStrRev(base, ".") > 0 Then base = Left$(base, InStrRev(base, ".") - 1)
+    Dim openAt As Long: openAt = InStr(base, "(")
+    Dim closeAt As Long: closeAt = InStrRev(base, ")")
+    If openAt > 0 And closeAt > openAt Then
+        ZipLabel = Mid$(base, openAt + 1, closeAt - openAt - 1)
+    Else
+        ZipLabel = base
+    End If
+End Function
+
+' daddy contains everything the other model zips do, so checking it locks
+' them out.
+Private Sub mChkDaddy_Change()
+    Dim chk As Variant
+    For Each chk In mModelChecks
+        If mChkDaddy.Value Then chk.Value = False
+        chk.Enabled = Not mChkDaddy.Value
+    Next chk
+End Sub
+
+Private Sub mBtnExtract_Click()
+    Dim jobNum As String: jobNum = Trim$(mTxtJob.Text)
+    If Len(jobNum) < 3 Or Not jobNum Like String$(Len(jobNum), "#") Then
+        MsgBox "Job number must be numeric and at least 3 digits.", vbExclamation
+        Exit Sub
+    End If
+
+    Dim picked As New Collection
+    Dim i As Long
+    For i = 1 To mChecks.Count
+        If mChecks(i).Enabled And mChecks(i).Value Then picked.Add mUnits(i)
+    Next i
+    If picked.Count = 0 Then
+        MsgBox "Check at least one item to extract.", vbExclamation
+        Exit Sub
+    End If
+
+    Dim jobFolderPath As String
+    If Len(FindSwJobFolder(jobNum, jobFolderPath)) = 0 Then
+        MsgBox "No SolidWorks job folder found for job " & jobNum & "." & vbCrLf & _
+               "Searched all type folders under " & SW_ROOT, vbExclamation
+        Exit Sub
+    End If
+
+    JobNumber = jobNum
+    JobFolder = jobFolderPath
+    Set SelectedUnits = picked
+    Cancelled = False
+    Me.Hide
+End Sub
+
+Private Sub mBtnCancel_Click()
+    Cancelled = True
+    Me.Hide
+End Sub
+
+' Treat the title-bar X like Cancel; hiding (not unloading) keeps the
+' public fields readable after Show returns.
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = vbFormControlMenu Then
+        Cancel = True
+        Cancelled = True
+        Me.Hide
+    End If
+End Sub
