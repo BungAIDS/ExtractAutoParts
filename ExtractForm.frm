@@ -129,8 +129,14 @@ Private Function BuildModelsFrame(ByVal startY As Single) As Single
     For Each zipName In zips
         Dim isDaddy As Boolean
         isDaddy = (InStr(1, CStr(zipName), "daddy", vbTextCompare) > 0)
+        Dim label As String
+        If isDaddy Then
+            label = "A8 + Accessories"          ' the all-in-one zip
+        Else
+            label = ZipLabel(CStr(zipName))
+        End If
         Dim chk As MSForms.CheckBox
-        Set chk = AddUnitCheckBox(fra, y, ZipLabel(CStr(zipName)), _
+        Set chk = AddUnitCheckBox(fra, y, label, _
                                   Array(modelsPath & zipName, True, MODELS_DEST, Not isDaddy))
         If isDaddy Then
             Set mChkDaddy = chk
@@ -151,7 +157,7 @@ Private Function AddUnitCheckBox(fra As MSForms.Frame, ByVal y As Single, _
     Set chk = fra.Controls.Add("Forms.CheckBox.1", "chkUnit" & (mChecks.Count + 1))
     chk.Left = 8: chk.Top = y
     chk.Width = fra.Width - 20: chk.Height = ROW_HEIGHT
-    chk.Caption = Replace(displayText, "&", "&&")   ' literal &, not an accelerator
+    chk.Caption = displayText   ' MSForms shows captions literally; no & escaping
     mChecks.Add chk
     mUnits.Add unit
     Set AddUnitCheckBox = chk

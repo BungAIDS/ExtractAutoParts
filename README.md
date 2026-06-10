@@ -10,9 +10,9 @@ you want, click **Extract**.
   labeled with the folder name minus the leading `AUTO `. Folders without a zip are not
   listed.
 * **Models** - one checkbox per zip inside `AUTO MODELS`, labeled with the text in
-  parentheses (`EXTRACT ME!! (S&BG ONLY).zip` → `S&BG ONLY`). Checking the **daddy** zip
-  unchecks and disables the other model zips, since it already contains everything they
-  do.
+  parentheses (`EXTRACT ME!! (S&BG ONLY).zip` → `S&BG ONLY`). The all-in-one zip is shown
+  as **A8 + Accessories**; checking it unchecks and disables the other model zips, since
+  it already contains everything they do.
 
 The checkboxes are built by scanning `Z:\DAG\` when the dialog opens, so adding or
 renaming an AUTO folder (or a zip in `AUTO MODELS`) needs no code change.
@@ -24,12 +24,12 @@ For every checked item:
 1. The zip is extracted into its own subfolder of the job folder so nothing gets mixed
    up, named after the source folder with the leading `AUTO ` removed - e.g.
    `AUTO INLET IVC LINKAGE` → `<job folder>\INLET IVC LINKAGE\`. All `AUTO MODELS` zips
-   extract into the same `<job folder>\MODELS\` (the non-daddy zips are subsets of
-   daddy, so they share one folder).
+   extract into the same `<job folder>\MODELS\` (the other model zips are subsets of the
+   A8 + Accessories zip, so they share one folder).
 2. The drawing inside the extraction (`.SLDDRW` / `.DWG`, at most one per zip) is renamed
    to `<job>-<xx>`, where `<xx>` is the suffix of the original name: for job `512345`,
-   `412345-63.SLDDRW` becomes `512345-63.SLDDRW`. Drawings from the **daddy** zip are
-   left untouched.
+   `412345-63.SLDDRW` becomes `512345-63.SLDDRW`. Drawings from the A8 + Accessories zip
+   are left untouched.
 
 A summary box then lists everything extracted and renamed, plus anything skipped or
 failed.
@@ -59,7 +59,8 @@ it needs.
 
 * Paths are constants at the top of `ExtractAutoParts.bas`: `DAG_ROOT` (`Z:\DAG\`) and
   `SW_ROOT` (`Z:\Solidworks\Current\JOBS\`). Change them there if anything moves.
-* The daddy zip is recognized by `daddy` appearing anywhere in its file name.
+* The all-in-one model zip (shown as **A8 + Accessories**) is recognized by `daddy`
+  appearing anywhere in its file name.
 * If the destination subfolder already exists (e.g. from an earlier run), the macro asks
   before touching it: **Yes** extracts into a new `NAME (2)` folder (then `(3)`, and so
   on), **No** extracts into the existing folder overwriting its files, **Cancel** skips
