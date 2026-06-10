@@ -157,29 +157,76 @@ Public Sub main()
     dlg.Show
     If dlg.Cancelled Then Unload dlg: Exit Sub
 
+    ' Destination folders are resolved once per name and remembered, so the
+    ' AUTO MODELS zips picked in one run share a single MODELS folder and
+    ' the already-exists prompt only appears once.
+    Dim resolvedDests As Object
+    Set resolvedDests = CreateObject("Scripting.Dictionary")
+    resolvedDests.CompareMode = vbTextCompare
+
     Dim report As String
     report = "Job " & dlg.JobNumber & " - " & dlg.JobFolder & vbCrLf & vbCrLf
     Dim unit As Variant
     For Each unit In dlg.SelectedUnits
-        report = report & ExtractUnit(unit, dlg.JobFolder, dlg.JobNumber)
+        Dim destName As String: destName = CStr(unit(2))
+        If Not resolvedDests.Exists(destName) Then
+            resolvedDests.Add destName, ResolveDestFolder(dlg.JobFolder, destName)
+        End If
+        Dim destPath As String: destPath = CStr(resolvedDests(destName))
+        If Len(destPath) = 0 Then
+            report = report & destName & vbCrLf & "    skipped" & vbCrLf & vbCrLf
+        Else
+            report = report & ExtractUnit(unit, destPath, dlg.JobNumber)
+        End If
     Next unit
     Unload dlg
 
     MsgBox report, vbInformation, "Extract Auto Parts"
 End Sub
 
+' Picks the subfolder of the job folder a unit extracts into. If destName
+' already exists there, asks whether to create "destName (2)" (then (3),
+' and so on) instead. Returns the full path ending in "\", or "" to skip.
+Private Function ResolveDestFolder(jobFolder As String, destName As String) As String
+    Dim destPath As String: destPath = jobFolder & destName & "\"
+    If Not FolderExists(destPath) Then
+        ResolveDestFolder = destPath
+        Exit Function
+    End If
+
+    Dim n As Long: n = 2
+    Dim altName As String
+    Do
+        altName = destName & " (" & n & ")"
+        If Not FolderExists(jobFolder & altName & "\") Then Exit Do
+        n = n + 1
+    Loop
+
+    Select Case MsgBox("""" & destName & """ already exists in the job folder." & vbCrLf & _
+                       jobFolder & vbCrLf & vbCrLf & _
+                       "Yes - extract into a new """ & altName & """ folder" & vbCrLf & _
+                       "No - extract into the existing folder (overwrites its files)" & vbCrLf & _
+                       "Cancel - skip this item", _
+                       vbYesNoCancel + vbQuestion, "Extract Auto Parts")
+        Case vbYes
+            ResolveDestFolder = jobFolder & altName & "\"
+        Case vbNo
+            ResolveDestFolder = destPath
+        Case Else
+            ResolveDestFolder = ""
+    End Select
+End Function
+
 ' unit = Array(srcSpec, srcIsZip, destName, renameDrawings):
 '   srcSpec  - a zip file path (srcIsZip True), or an AUTO folder path
 '              whose zips should all be extracted (srcIsZip False)
-'   destName - subfolder of the job folder to extract into
-Private Function ExtractUnit(unit As Variant, jobFolder As String, jobNum As String) As String
+' destPath is the already-resolved job subfolder (may carry a "(2)" suffix).
+Private Function ExtractUnit(unit As Variant, destPath As String, jobNum As String) As String
     Dim srcSpec As String:     srcSpec = CStr(unit(0))
     Dim srcIsZip As Boolean:   srcIsZip = CBool(unit(1))
-    Dim destName As String:    destName = CStr(unit(2))
     Dim renameDwgs As Boolean: renameDwgs = CBool(unit(3))
-    Dim destPath As String:    destPath = jobFolder & destName & "\"
 
-    Dim unitLog As String: unitLog = destName & vbCrLf
+    Dim unitLog As String: unitLog = LeafName(destPath) & vbCrLf
 
     Dim zips As New Collection
     If srcIsZip Then
@@ -236,6 +283,13 @@ End Function
 
 Private Function FileNameOf(path As String) As String
     FileNameOf = Mid$(path, InStrRev(path, "\") + 1)
+End Function
+
+' Last segment of a folder path: "...\JOBS\512345\MODELS (2)\" -> "MODELS (2)"
+Private Function LeafName(folderPath As String) As String
+    Dim p As String: p = folderPath
+    If Right$(p, 1) = "\" Then p = Left$(p, Len(p) - 1)
+    LeafName = Mid$(p, InStrRev(p, "\") + 1)
 End Function
 
 ' Renames every drawing under folderPath (recursively) from <old>-<xx> to

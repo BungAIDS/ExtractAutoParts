@@ -60,7 +60,11 @@ it needs.
 * Paths are constants at the top of `ExtractAutoParts.bas`: `DAG_ROOT` (`Z:\DAG\`) and
   `SW_ROOT` (`Z:\Solidworks\Current\JOBS\`). Change them there if anything moves.
 * The daddy zip is recognized by `daddy` appearing anywhere in its file name.
-* Re-running an extraction overwrites the previously extracted files. If the renamed
-  drawing name already exists from an earlier run, the freshly extracted file keeps its
-  original name and the summary says so.
+* If the destination subfolder already exists (e.g. from an earlier run), the macro asks
+  before touching it: **Yes** extracts into a new `NAME (2)` folder (then `(3)`, and so
+  on), **No** extracts into the existing folder overwriting its files, **Cancel** skips
+  that item. The `AUTO MODELS` zips picked in one run still share a single folder, so
+  the prompt appears at most once per name.
+* If you choose to reuse an existing folder and the renamed drawing name is already in
+  it, the freshly extracted file keeps its original name and the summary says so.
 * Unzipping uses Windows PowerShell's `Expand-Archive` (built into Windows 10/11).
