@@ -134,9 +134,13 @@ Private Function ChosenJob() As String
     End If
 End Function
 
-' Order # of the active SolidWorks document, read from the leading digits
-' of its file name (jobs are saved as "<order>-01.SLDDRW" etc.). Returns
-' "" when nothing is open or the name has no 3+ digit prefix.
+' Order # of the active SolidWorks document. The job lives in a folder
+' named after its order number, so the folder holding the open file is the
+' most reliable source:
+'   ...\JOBS\GENERAL LINE\511-515\512345\512345-01.SLDDRW  ->  512345
+' If that folder name is not a plain order number (file opened from
+' somewhere else, or never saved), fall back to the leading digits of the
+' file name. Returns "" when nothing usable is open.
 Private Function DetectActiveJob() As String
     On Error Resume Next
     Dim swApp As Object: Set swApp = Application.SldWorks
@@ -144,13 +148,38 @@ Private Function DetectActiveJob() As String
     Dim doc As Object: Set doc = swApp.ActiveDoc
     If doc Is Nothing Then Exit Function
 
-    Dim nm As String: nm = doc.GetPathName        ' full path, "" if unsaved
+    Dim path As String: path = doc.GetPathName     ' full path, "" if unsaved
+    If Len(path) > 0 Then
+        Dim parent As String: parent = ParentFolderName(path)
+        If IsJobNumber(parent) Then
+            DetectActiveJob = parent
+            Exit Function
+        End If
+    End If
+
+    Dim nm As String: nm = path
     If Len(nm) = 0 Then nm = doc.GetTitle
     If InStrRev(nm, "\") > 0 Then nm = Mid$(nm, InStrRev(nm, "\") + 1)
     If InStrRev(nm, ".") > 0 Then nm = Left$(nm, InStrRev(nm, ".") - 1)
-
     Dim digits As String: digits = LeadingDigits(nm)
-    If Len(digits) >= 3 Then DetectActiveJob = digits
+    If IsJobNumber(digits) Then DetectActiveJob = digits
+End Function
+
+' Name of the folder that directly contains filePath (its parent folder):
+' "...\512345\512345-01.SLDDRW" -> "512345".
+Private Function ParentFolderName(filePath As String) As String
+    Dim folder As String: folder = filePath
+    Dim slash As Long: slash = InStrRev(folder, "\")
+    If slash = 0 Then Exit Function
+    folder = Left$(folder, slash - 1)              ' drop the file name
+    slash = InStrRev(folder, "\")
+    If slash > 0 Then folder = Mid$(folder, slash + 1)
+    ParentFolderName = folder
+End Function
+
+' True when s is all digits and at least 3 long - a plausible order number.
+Private Function IsJobNumber(s As String) As Boolean
+    IsJobNumber = (Len(s) >= 3) And (s Like String$(Len(s), "#"))
 End Function
 
 Private Function LeadingDigits(s As String) As String
@@ -286,7 +315,7 @@ End Sub
 
 Private Sub mBtnExtract_Click()
     Dim jobNum As String: jobNum = ChosenJob()
-    If Len(jobNum) < 3 Or Not jobNum Like String$(Len(jobNum), "#") Then
+    If Not IsJobNumber(jobNum) Then
         MsgBox "Order number must be numeric and at least 3 digits.", vbExclamation
         Exit Sub
     End If
