@@ -99,7 +99,7 @@ Private Function BuildPartsFrame(ByVal startY As Single) As Single
             Dim folderPath As String: folderPath = DAG_ROOT & folderName & "\"
             If ListZipsIn(folderPath).Count > 0 Then
                 Dim display As String: display = StripAutoPrefix(CStr(folderName))
-                AddUnitCheckBox fra, y, display, Array(folderPath, False, display, True)
+                AddUnitCheckBox fra, y, display, Array(folderPath, False, display, True, display)
                 y = y + ROW_HEIGHT
             End If
         End If
@@ -137,7 +137,7 @@ Private Function BuildModelsFrame(ByVal startY As Single) As Single
         End If
         Dim chk As MSForms.CheckBox
         Set chk = AddUnitCheckBox(fra, y, label, _
-                                  Array(modelsPath & zipName, True, MODELS_DEST, Not isDaddy))
+                                  Array(modelsPath & zipName, True, MODELS_DEST, Not isDaddy, label))
         If isDaddy Then
             Set mChkDaddy = chk
             chk.Font.Bold = True

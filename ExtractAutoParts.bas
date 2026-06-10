@@ -217,16 +217,18 @@ Private Function ResolveDestFolder(jobFolder As String, destName As String) As S
     End Select
 End Function
 
-' unit = Array(srcSpec, srcIsZip, destName, renameDrawings):
+' unit = Array(srcSpec, srcIsZip, destName, renameDrawings, label):
 '   srcSpec  - a zip file path (srcIsZip True), or an AUTO folder path
 '              whose zips should all be extracted (srcIsZip False)
+'   label    - friendly name shown in the summary (the checkbox caption)
 ' destPath is the already-resolved job subfolder (may carry a "(2)" suffix).
 Private Function ExtractUnit(unit As Variant, destPath As String, jobNum As String) As String
     Dim srcSpec As String:     srcSpec = CStr(unit(0))
     Dim srcIsZip As Boolean:   srcIsZip = CBool(unit(1))
     Dim renameDwgs As Boolean: renameDwgs = CBool(unit(3))
+    Dim label As String:       label = CStr(unit(4))
 
-    Dim unitLog As String: unitLog = LeafName(destPath) & vbCrLf
+    Dim unitLog As String: unitLog = label & "  ->  " & LeafName(destPath) & "\" & vbCrLf
 
     Dim zips As New Collection
     If srcIsZip Then
@@ -243,14 +245,15 @@ Private Function ExtractUnit(unit As Variant, destPath As String, jobNum As Stri
         Exit Function
     End If
 
-    Dim zipPath As Variant
+    Dim zipPath As Variant, anyFailed As Boolean
     For Each zipPath In zips
-        If ExpandArchive(CStr(zipPath), destPath) Then
-            unitLog = unitLog & "    extracted " & FileNameOf(CStr(zipPath)) & vbCrLf
-        Else
-            unitLog = unitLog & "    ! FAILED to extract " & FileNameOf(CStr(zipPath)) & vbCrLf
-        End If
+        If Not ExpandArchive(CStr(zipPath), destPath) Then anyFailed = True
     Next zipPath
+    If anyFailed Then
+        unitLog = unitLog & "    ! extraction FAILED" & vbCrLf
+    Else
+        unitLog = unitLog & "    extracted" & vbCrLf
+    End If
 
     If renameDwgs Then
         Dim renameLog As String
@@ -279,10 +282,6 @@ End Function
 
 Private Function PsQuote(s As String) As String
     PsQuote = Replace(s, "'", "''")
-End Function
-
-Private Function FileNameOf(path As String) As String
-    FileNameOf = Mid$(path, InStrRev(path, "\") + 1)
 End Function
 
 ' Last segment of a folder path: "...\JOBS\512345\MODELS (2)\" -> "MODELS (2)"
