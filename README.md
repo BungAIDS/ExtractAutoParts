@@ -47,17 +47,17 @@ the first folder that exists for the job number.
 
 ## Install
 
-1. In SolidWorks: **Tools > Macro > New...**, save as `ExtractAutoParts.swp`.
-2. In the VBA editor: **File > Import File...** and import `ExtractAutoParts.bas`, then
-   `ExtractForm.frm`. Delete the empty module the new macro started with.
-3. Save. Run with **Tools > Macro > Run...** (entry point `main` in the
-   `ExtractAutoParts` module).
+Both files are plain code, ready to paste as-is (no headers to trim).
 
-If importing `ExtractForm.frm` gives an error, build the form manually instead:
-**Insert > UserForm**, set its `(Name)` to `ExtractForm` in the Properties window, press
-F7 and paste in everything below the `Attribute` lines of `ExtractForm.frm`. The form has
-no designed controls - the entire dialog is built at run time - so an empty form is all
-it needs.
+1. In SolidWorks: **Tools > Macro > New...**, save as `ExtractAutoParts.swp`.
+2. Paste the contents of `ExtractAutoParts.bas` into the module the new macro started
+   with (or **File > Import File...** it and delete the starter module).
+3. **Insert > UserForm**, set its `(Name)` to `ExtractForm` in the Properties window
+   (F4), press F7 for its code window and paste in the entire contents of
+   `ExtractForm.frm`. Leave the form itself empty - the whole dialog is built at run
+   time.
+4. Save. Run with **Tools > Macro > Run...** (entry point `main` in the
+   `ExtractAutoParts` module).
 
 ## Notes
 

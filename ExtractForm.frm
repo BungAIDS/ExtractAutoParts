@@ -1,24 +1,11 @@
-VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ExtractForm
-   Caption         =   "Extract Auto Parts"
-   ClientHeight    =   3120
-   ClientLeft      =   120
-   ClientTop       =   465
-   ClientWidth     =   4710
-   StartUpPosition =   1  'CenterOwner
-End
-Attribute VB_Name = "ExtractForm"
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = False
 Option Explicit
 
-' Dialog for ExtractAutoParts. Every control is created at run time in
-' UserForm_Initialize (which is why this .frm needs no .frx blob): one
-' checkbox per "AUTO *" folder that contains a zip, plus one checkbox
-' per zip inside AUTO MODELS. Checking the "daddy" model zip locks out
-' the other model zips - it already contains everything they do.
+' Dialog for ExtractAutoParts. Paste this whole file into the code window
+' of an empty UserForm named "ExtractForm" - every control is created at
+' run time in UserForm_Initialize, so the form needs nothing designed on
+' it. One checkbox per "AUTO *" folder that contains a zip, plus one
+' checkbox per zip inside AUTO MODELS; checking the all-in-one model zip
+' locks out the other model zips - it already contains everything they do.
 '
 ' The module reads Cancelled / JobNumber / JobFolder / SelectedUnits
 ' after Show returns.
