@@ -26,12 +26,15 @@ Option Explicit
 Public Cancelled As Boolean
 Public JobNumber As String
 Public JobFolder As String
-Public SelectedUnits As Collection   ' of Array(srcSpec, srcIsZip, destName, renameDrawings)
+Public SelectedUnits As Collection   ' of Array(srcSpec, srcIsZip, destName, renameDrawings, label)
 
 Private mChecks As Collection        ' every checkbox, index-aligned with mUnits
 Private mUnits As Collection
 Private mModelChecks As Collection   ' AUTO MODELS checkboxes other than daddy
+Private mDetectedJob As String       ' order # of the open SolidWorks doc, "" if none
 Private mTxtJob As MSForms.TextBox
+Private WithEvents mOptDetected As MSForms.OptionButton  ' "use the open order"
+Private WithEvents mOptOther As MSForms.OptionButton     ' "type another order"
 Private WithEvents mChkDaddy As MSForms.CheckBox
 Private WithEvents mBtnExtract As MSForms.CommandButton
 Private WithEvents mBtnCancel As MSForms.CommandButton
@@ -53,16 +56,7 @@ Private Sub UserForm_Initialize()
     Me.Caption = "Extract Auto Parts"
 
     Dim y As Single: y = MARGIN
-
-    Dim lbl As MSForms.Label
-    Set lbl = Me.Controls.Add("Forms.Label.1", "lblJob")
-    lbl.Caption = "Job #:"
-    lbl.Left = MARGIN: lbl.Top = y + 3: lbl.Width = 38: lbl.Height = 12
-
-    Set mTxtJob = Me.Controls.Add("Forms.TextBox.1", "txtJob")
-    mTxtJob.Left = MARGIN + 40: mTxtJob.Top = y: mTxtJob.Width = 90: mTxtJob.Height = 18
-    y = y + 18 + MARGIN
-
+    y = BuildJobChooser(y)
     y = BuildPartsFrame(y)
     y = BuildModelsFrame(y)
 
@@ -83,6 +77,101 @@ Private Sub UserForm_Initialize()
 
     Me.Width = INNER_WIDTH + (Me.Width - Me.InsideWidth)
     Me.Height = y + (Me.Height - Me.InsideHeight)
+End Sub
+
+' Order # entry at the top. When a job number can be read off the open
+' SolidWorks document, offer two radio buttons - use that one, or type
+' another - with the detected order selected by default. With nothing
+' open to detect, fall back to a plain "Order #:" text box.
+Private Function BuildJobChooser(ByVal startY As Single) As Single
+    mDetectedJob = DetectActiveJob()
+    Dim y As Single: y = startY
+
+    Set mTxtJob = Me.Controls.Add("Forms.TextBox.1", "txtJob")
+    mTxtJob.Height = 18
+
+    If Len(mDetectedJob) > 0 Then
+        Set mOptDetected = Me.Controls.Add("Forms.OptionButton.1", "optDetected")
+        mOptDetected.Caption = "Use open order:  " & mDetectedJob
+        mOptDetected.GroupName = "order"
+        mOptDetected.Left = MARGIN: mOptDetected.Top = y
+        mOptDetected.Width = INNER_WIDTH - 2 * MARGIN: mOptDetected.Height = 16
+        mOptDetected.Value = True
+        y = y + 18
+
+        Set mOptOther = Me.Controls.Add("Forms.OptionButton.1", "optOther")
+        mOptOther.Caption = "Other order #:"
+        mOptOther.GroupName = "order"
+        mOptOther.Left = MARGIN: mOptOther.Top = y + 2
+        mOptOther.Width = 96: mOptOther.Height = 16
+
+        mTxtJob.Left = MARGIN + 100: mTxtJob.Top = y
+        mTxtJob.Width = 90: mTxtJob.Enabled = False
+        y = y + 18 + MARGIN
+    Else
+        Dim lbl As MSForms.Label
+        Set lbl = Me.Controls.Add("Forms.Label.1", "lblJob")
+        lbl.Caption = "Order #:"
+        lbl.Left = MARGIN: lbl.Top = y + 3: lbl.Width = 48: lbl.Height = 12
+
+        mTxtJob.Left = MARGIN + 50: mTxtJob.Top = y: mTxtJob.Width = 90
+        y = y + 18 + MARGIN
+    End If
+
+    BuildJobChooser = y
+End Function
+
+' The order # the user wants: detected order when its radio is selected,
+' otherwise whatever is typed in the text box. (VBA's And does not short-
+' circuit, so the Nothing check has to be a separate If.)
+Private Function ChosenJob() As String
+    If mOptDetected Is Nothing Then
+        ChosenJob = Trim$(mTxtJob.Text)
+    ElseIf mOptDetected.Value Then
+        ChosenJob = mDetectedJob
+    Else
+        ChosenJob = Trim$(mTxtJob.Text)
+    End If
+End Function
+
+' Order # of the active SolidWorks document, read from the leading digits
+' of its file name (jobs are saved as "<order>-01.SLDDRW" etc.). Returns
+' "" when nothing is open or the name has no 3+ digit prefix.
+Private Function DetectActiveJob() As String
+    On Error Resume Next
+    Dim swApp As Object: Set swApp = Application.SldWorks
+    If swApp Is Nothing Then Exit Function
+    Dim doc As Object: Set doc = swApp.ActiveDoc
+    If doc Is Nothing Then Exit Function
+
+    Dim nm As String: nm = doc.GetPathName        ' full path, "" if unsaved
+    If Len(nm) = 0 Then nm = doc.GetTitle
+    If InStrRev(nm, "\") > 0 Then nm = Mid$(nm, InStrRev(nm, "\") + 1)
+    If InStrRev(nm, ".") > 0 Then nm = Left$(nm, InStrRev(nm, ".") - 1)
+
+    Dim digits As String: digits = LeadingDigits(nm)
+    If Len(digits) >= 3 Then DetectActiveJob = digits
+End Function
+
+Private Function LeadingDigits(s As String) As String
+    Dim i As Long
+    For i = 1 To Len(s)
+        Select Case Mid$(s, i, 1)
+            Case "0" To "9": LeadingDigits = LeadingDigits & Mid$(s, i, 1)
+            Case Else: Exit Function
+        End Select
+    Next i
+End Function
+
+' Selecting "Other" frees the text box for typing; selecting the detected
+' order locks it again. Only one handler is needed - the pair toggles
+' together.
+Private Sub mOptOther_Change()
+    mTxtJob.Enabled = mOptOther.Value
+    If mOptOther.Value Then
+        On Error Resume Next
+        mTxtJob.SetFocus
+    End If
 End Sub
 
 ' One checkbox per AUTO folder (except AUTO MODELS) that has a zip in it.
@@ -196,9 +285,9 @@ Private Sub mChkDaddy_Change()
 End Sub
 
 Private Sub mBtnExtract_Click()
-    Dim jobNum As String: jobNum = Trim$(mTxtJob.Text)
+    Dim jobNum As String: jobNum = ChosenJob()
     If Len(jobNum) < 3 Or Not jobNum Like String$(Len(jobNum), "#") Then
-        MsgBox "Job number must be numeric and at least 3 digits.", vbExclamation
+        MsgBox "Order number must be numeric and at least 3 digits.", vbExclamation
         Exit Sub
     End If
 

@@ -157,6 +157,11 @@ Public Sub main()
     dlg.Show
     If dlg.Cancelled Then Unload dlg: Exit Sub
 
+    Dim jobNum As String:    jobNum = dlg.JobNumber
+    Dim jobFolder As String: jobFolder = dlg.JobFolder
+    Dim units As Collection: Set units = dlg.SelectedUnits
+    Unload dlg
+
     ' Destination folders are resolved once per name and remembered, so the
     ' AUTO MODELS zips picked in one run share a single MODELS folder and
     ' the already-exists prompt only appears once.
@@ -165,23 +170,30 @@ Public Sub main()
     resolvedDests.CompareMode = vbTextCompare
 
     Dim report As String
-    report = "Job " & dlg.JobNumber & " - " & dlg.JobFolder & vbCrLf & vbCrLf
+    report = "Order " & jobNum & " - " & jobFolder & vbCrLf & vbCrLf
     Dim unit As Variant
-    For Each unit In dlg.SelectedUnits
+    For Each unit In units
         Dim destName As String: destName = CStr(unit(2))
         If Not resolvedDests.Exists(destName) Then
-            resolvedDests.Add destName, ResolveDestFolder(dlg.JobFolder, destName)
+            resolvedDests.Add destName, ResolveDestFolder(jobFolder, destName)
         End If
         Dim destPath As String: destPath = CStr(resolvedDests(destName))
         If Len(destPath) = 0 Then
             report = report & destName & vbCrLf & "    skipped" & vbCrLf & vbCrLf
         Else
-            report = report & ExtractUnit(unit, destPath, dlg.JobNumber)
+            report = report & ExtractUnit(unit, destPath, jobNum)
         End If
     Next unit
-    Unload dlg
 
     MsgBox report, vbInformation, "Extract Auto Parts"
+    OpenInExplorer jobFolder
+End Sub
+
+' Opens folderPath in a Windows Explorer window so the freshly extracted
+' files are right there when the macro finishes.
+Private Sub OpenInExplorer(folderPath As String)
+    On Error Resume Next
+    Shell "explorer.exe """ & folderPath & """", vbNormalFocus
 End Sub
 
 ' Picks the subfolder of the job folder a unit extracts into. If destName

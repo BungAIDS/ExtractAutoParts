@@ -1,11 +1,15 @@
 # ExtractAutoParts
 
 SolidWorks macro that extracts the equation-driven AUTO parts from the DAG folder
-(`Z:\DAG\`) into a SolidWorks job folder. Run it, enter the job number, check the items
-you want, click **Extract**.
+(`Z:\DAG\`) into a SolidWorks job folder. Run it, confirm the order number, check the
+items you want, click **Extract**.
 
 ## What the dialog shows
 
+* **Order #** - if a job is open in SolidWorks, the macro reads its order number off the
+  active document and offers it as **Use open order: \<number\>** (selected by default);
+  pick **Other order #** to type a different one. With nothing open, it falls back to a
+  plain `Order #:` box.
 * **Parts** - one checkbox per `AUTO *` folder under `Z:\DAG\` (each holds a single zip),
   labeled with the folder name minus the leading `AUTO `. Folders without a zip are not
   listed.
@@ -32,7 +36,7 @@ For every checked item:
    are left untouched.
 
 A summary box then lists everything extracted and renamed, plus anything skipped or
-failed.
+failed, and the job folder opens in Windows Explorer so the new files are right there.
 
 ## Job folder
 
