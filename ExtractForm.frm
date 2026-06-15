@@ -121,13 +121,14 @@ Private Function ChosenJob() As String
     End If
 End Function
 
-' Order # of the active SolidWorks document. The job lives in a folder
-' named after its order number, so the folder holding the open file is the
-' most reliable source:
-'   ...\JOBS\GENERAL LINE\511-515\512345\512345-01.SLDDRW  ->  512345
-' If that folder name is not a plain order number (file opened from
-' somewhere else, or never saved), fall back to the leading digits of the
-' file name. Returns "" when nothing usable is open.
+' Order # of the active SolidWorks document. Jobs live in a folder named
+' after the order number, so the order # is the first plain-number folder
+' in the path under the jobs root - which still works when the open file is
+' nested in a job subfolder:
+'   ...\JOBS\GENERAL LINE\511-515\512345\95-1-0012\D19 CUST.SLDDRW  ->  512345
+' If the path has no such folder (file opened from elsewhere, or never
+' saved), fall back to the leading digits of the file name. Returns "" when
+' nothing usable is open.
 Private Function DetectActiveJob() As String
     On Error Resume Next
     Dim swApp As Object: Set swApp = Application.SldWorks
@@ -137,9 +138,9 @@ Private Function DetectActiveJob() As String
 
     Dim path As String: path = doc.GetPathName     ' full path, "" if unsaved
     If Len(path) > 0 Then
-        Dim parent As String: parent = ParentFolderName(path)
-        If IsJobNumber(parent) Then
-            DetectActiveJob = parent
+        Dim fromPath As String: fromPath = JobNumberInPath(path)
+        If Len(fromPath) > 0 Then
+            DetectActiveJob = fromPath
             Exit Function
         End If
     End If
@@ -152,16 +153,25 @@ Private Function DetectActiveJob() As String
     If IsJobNumber(digits) Then DetectActiveJob = digits
 End Function
 
-' Name of the folder that directly contains filePath (its parent folder):
-' "...\512345\512345-01.SLDDRW" -> "512345".
-Private Function ParentFolderName(filePath As String) As String
-    Dim folder As String: folder = filePath
-    Dim slash As Long: slash = InStrRev(folder, "\")
-    If slash = 0 Then Exit Function
-    folder = Left$(folder, slash - 1)              ' drop the file name
-    slash = InStrRev(folder, "\")
-    If slash > 0 Then folder = Mid$(folder, slash + 1)
-    ParentFolderName = folder
+' First folder in filePath whose name is a plain order number, scanning
+' from the jobs root down so a file nested in a job subfolder still resolves
+' to the job folder above it:
+'   ...\JOBS\GENERAL LINE\511-515\512345\95-1-0012\D19 CUST.SLDDRW -> 512345
+' Anchored on SW_ROOT so a numeric folder in the server path above the jobs
+' root can't be mistaken for the order number.
+Private Function JobNumberInPath(filePath As String) As String
+    Dim rest As String: rest = filePath
+    If InStr(1, filePath, SW_ROOT, vbTextCompare) = 1 Then
+        rest = Mid$(filePath, Len(SW_ROOT) + 1)
+    End If
+    Dim parts() As String: parts = Split(rest, "\")
+    Dim i As Long
+    For i = LBound(parts) To UBound(parts) - 1      ' skip the file name itself
+        If IsJobNumber(parts(i)) Then
+            JobNumberInPath = parts(i)
+            Exit Function
+        End If
+    Next i
 End Function
 
 ' True when s is all digits and at least 3 long - a plausible order number.

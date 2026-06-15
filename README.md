@@ -7,9 +7,10 @@ items you want, click **Extract**.
 ## What the dialog shows
 
 * **Order #** - if a job is open in SolidWorks, the macro reads its order number from the
-  job folder the active document sits in (falling back to the file name) and offers it as
-  **Use open order: \<number\>** (selected by default); pick **Other order #** to type a
-  different one. With nothing open, it falls back to a plain `Order #:` box.
+  job folder the active document lives under - even when the file is nested in a job
+  subfolder - falling back to the file name, and offers it as **Use open order:
+  \<number\>** (selected by default); pick **Other order #** to type a different one. With
+  nothing open, it falls back to a plain `Order #:` box.
 * **Parts** - one checkbox per `AUTO *` folder under `Z:\DAG\` (each holds a single zip),
   labeled with the folder name minus the leading `AUTO `. Folders without a zip are not
   listed.
